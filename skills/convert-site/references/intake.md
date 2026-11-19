@@ -62,6 +62,8 @@ opening explaining what a repository, a staging deploy and a pull request are.
        built. A multisite's sub-sites on the same host are left out this way.
     10. Components. Default: off. Say "components" if you want repeated blocks (cards, calls
         to action) turned into Astro components after everything matches.
+    11. Performance. Default: run a measured optimization pass after everything matches. Say
+        "parity only" to skip this pass.
 
     What is missing and what happens:
     <one line per gap, from the list below>
@@ -95,7 +97,9 @@ lives in `$SITE/.conversion/` from the start; `init-site.mjs` scaffolds around i
     node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE set site '"<LIVE>"'
     node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE set hosting '"vercel"'
     node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE set repo '"<owner>/<slug>"'
-    node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE set intake '{"forms":{"service":"formspree"},"testAddress":"you@example.com","domain":"<host>","vercelScope":"<team slug>","publicStaging":true,"consent":[],"keepPages":[],"excludePaths":[],"components":false}'
+    node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE set intake '{"forms":{"service":"formspree"},"testAddress":"you@example.com","domain":"<host>","vercelScope":"<team slug>","publicStaging":true,"consent":[],"keepPages":[],"excludePaths":[],"components":false,"performance":true}'
+
+Set `intake.performance` to `false` for "parity only".
 
 `intake.vercelScope` is preflight's `vercel.scope` (the default team's slug) unless the person
 named another team slug; never the username, which the CLI refuses ("You cannot set your
@@ -116,7 +120,7 @@ read the array with `state.mjs get needsYou`, append, and write it back with `se
 
 ## Exceptions and proposals, said once
 
-For `new` and `some` people, add one sentence each to the message: the default build copies the
-live site exactly, faults included; a difference the static build cannot avoid is an exception
-they sign off in the PR; an improvement is a proposal that ships only when they approve it. The
-rule itself is in SKILL.md, "Decisions, exceptions, proposals".
+For `new` and `some` people, explain that the build preserves the live experience and ships
+verified performance improvements. A difference the static build cannot avoid is an exception
+they sign off in the PR. A change to the live experience is a proposal they approve. See
+SKILL.md, "Decisions, exceptions, proposals".

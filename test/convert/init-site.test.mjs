@@ -243,7 +243,7 @@ test('the real copied scripts answer --help from inside the scaffolded site', (t
   // Stands in for npm install: the site resolves the pinned packages from its own node_modules.
   symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'), 'dir');
   const scripts = ['scripts/review/shoot.mjs', 'scripts/state.mjs', 'scripts/media-upload.mjs', 'scripts/review-serve.mjs', 'scripts/verify-live.mjs',
-    'scripts/copy-assets.mjs', 'scripts/link-exceptions.mjs']
+    'scripts/copy-assets.mjs', 'scripts/link-exceptions.mjs', 'scripts/audit-lighthouse.mjs']
     .filter((script) => script !== 'scripts/verify-live.mjs' || existsSync(join(dir, script)));
   for (const script of scripts) {
     const help = spawnSync(process.execPath, [script, '--help'], { cwd: dir, encoding: 'utf8' });

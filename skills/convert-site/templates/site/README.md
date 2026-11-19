@@ -1,6 +1,7 @@
 # {{SITE_NAME}}
 
-This site was converted with astro-conversion-kit: a static Astro rebuild of {{ORIGIN}}.
+This is a static Astro rebuild of {{ORIGIN}} made with
+[astro-conversion-kit](https://github.com/shinhq/astro-conversion-kit).
 Scaffolded on {{DATE}}; hosted on {{HOSTING}}.
 
 Requires Node 22.23.4 or newer (`nvm use`), then `npm install`.
@@ -8,7 +9,7 @@ Requires Node 22.23.4 or newer (`nvm use`), then `npm install`.
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Local dev server |
-| `npm run build` | Static build into `dist/` |
+| `npm run build` | Static build into `dist/` with same-site navigation normalized |
 | `npm run preview` | Serve `dist/` locally |
 | `npm test` | Unit tests under `test/` |
 | `npm run baseline` | Build `baseline/` from `capture/` |
@@ -17,6 +18,7 @@ Requires Node 22.23.4 or newer (`nvm use`), then `npm install`.
 | `npm run verify` | Run every parity gate against `dist/` |
 | `npm run verify:proposals` | Gates with approved-pending proposals switched on |
 | `npm run verify:release` | Gates for the indexable launch build |
+| `npm run audit:lighthouse` | Local Lighthouse on an isolated release build when Lighthouse is installed. Pass verification flags after the runner's `--` separator. |
 | `npm run redirects:build` | Generate host redirect rules from `redirects.csv` |
 | `npm run verify:live` | Check the live host after launch |
 | `npm run review:shoot` | Screenshot live and local pages at 390, 768 and 1440 px |

@@ -15,6 +15,7 @@ results live in `.conversion/state.json` in the site repository, so a run can st
 | 7. Gates | Gate output | `npm run verify` exits 0 |
 | 8. Visual review | Screenshots, diffs, style report, contact sheet | Every template passes at 390, 768 and 1440; every page at 390 and 1440 |
 | 9. Components (optional) | Astro components for repeated blocks | Gates and visual review still pass, in a separate commit |
+| 9a. Performance | `docs/performance.md` and before-and-after Lighthouse results | Each optimization evaluated and kept changes pass parity and interaction checks, or intake says `parity only` |
 | 10. Pre-launch and staging | `pre-launch` report, staging deploy, `launch-audit` report | `pre-launch` exits 0; every audit blocker is fixed or listed |
 | 11. Suggestions | `docs/suggestions.md` | Every finding has evidence, effort and risk |
 | 12. PR and runbook | The pull request, `docs/LAUNCH.md` | The PR quotes the gate output and every "Not covered" section |
@@ -105,6 +106,13 @@ every pair passes, then diffs every page at 390 and 1440.
 Off by default. Repeated blocks (cards, calls to action, testimonials, galleries) become Astro
 components with scoped styles. The text and pixel gates prove nothing moved. It is one separate
 commit, so it can be dropped.
+
+## 9a. Performance
+
+Run the [default optimization checklist](../skills/convert-site/references/performance.md) after
+parity. Measure an isolated release build, optimize site-specific bottlenecks, and recheck the
+gates and visual review. Write the results and coverage to `docs/performance.md`. The intake
+option `parity only` skips this phase's measurements and changes.
 
 ## 10. Pre-launch and staging
 

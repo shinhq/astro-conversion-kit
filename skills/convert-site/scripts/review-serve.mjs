@@ -193,8 +193,7 @@ function routeTable(dir, dist) {
   };
 }
 
-export function handler({ dir }) {
-  const dist = join(dir, 'dist');
+export function handler({ dir, dist = join(dir, 'dist'), audit = null }) {
   const currentRoutes = routeTable(dir, dist);
   currentRoutes();
   return async (req, res) => {
@@ -212,19 +211,32 @@ export function handler({ dir }) {
       res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end('review-serve answers GET and HEAD only\n');
     }
+    if (audit) {
+      const cached = audit.cachedMedia(path);
+      if (cached && !distFile(dist, path, { cleanUrls })) return sendFile(req, res, cached);
+    }
     const redirect = table.redirect(path, search);
     if (redirect) {
+      if (audit && (!/^\/(?![\/\\])/.test(redirect.location) || /[\s\\]/u.test(redirect.location))) {
+        audit.unavailable(path, 'external redirect');
+        return notFound(req, res, dist);
+      }
       res.writeHead(redirect.status, { Location: redirect.location });
       return res.end();
     }
-    const file = distFile(dist, path, { cleanUrls });
+    const file = distFile(dist, path, { cleanUrls: cleanUrls || audit?.cleanUrls });
     if (file) return sendFile(req, res, file);
     const rewrite = table.rewrite(path, search);
-    if (rewrite?.external) return proxy(req, res, rewrite.destination);
+    if (rewrite?.external) {
+      if (!audit) return proxy(req, res, rewrite.destination);
+      audit.unavailable(path, 'external rewrite or missing cached media');
+      return notFound(req, res, dist);
+    }
     if (rewrite) {
       const target = distFile(dist, rewrite.destination.split('?')[0], { cleanUrls });
       if (target) return sendFile(req, res, target);
     }
+    audit?.unavailable(path, 'missing local file');
     return notFound(req, res, dist);
   };
 }

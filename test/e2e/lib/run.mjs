@@ -23,7 +23,7 @@ export const NAME = 'Fixture Roofing';
 export const ENDPOINT = 'https://formspree.io/f/test';
 export const ASTRO_VERSION = '7.4.2';
 export const WIDTHS = [390, 768, 1440];
-export const PHASES = ['intake', 'capture', 'plan', 'scaffold', 'baseline', 'build', 'gates', 'visual', 'components', 'prelaunch', 'suggestions', 'pr'];
+export const PHASES = ['intake', 'capture', 'plan', 'scaffold', 'baseline', 'build', 'gates', 'visual', 'components', 'performance', 'prelaunch', 'suggestions', 'pr'];
 const OLD_URLS = ['/old-services', '/about'];
 const SKILLS = join(KIT, 'skills');
 const NODE_BIN = dirname(process.execPath);
@@ -110,7 +110,7 @@ export async function intake({ site, live }) {
   const fingerprint = expectCode(await node(site, kit('capture-site', 'fingerprint.mjs'), [live]));
   // The defaults stand (nobody answers the message), plus the two old URLs the person listed.
   await setState(site, 'intake', {
-    siteName: NAME, hosting: 'vercel', components: false, oldUrls: OLD_URLS, testAddress: null,
+    siteName: NAME, hosting: 'vercel', components: false, performance: true, oldUrls: OLD_URLS, testAddress: null,
     platform: /platform:\s+(\S+)/.exec(fingerprint.stdout)?.[1] ?? null, experience: preflight.experience,
   });
   await setState(site, 'needsYou', [
@@ -691,6 +691,24 @@ export async function visual({ site, live }) {
 export async function components({ site }) {
   await S(site, 'phase', 'components');
   await setState(site, 'phases.components.result', 'skipped: off by default');
+}
+
+// The browser CLI is exercised separately with a local runner fixture. This site uses the
+// playbook's missing-tool path so the conversion test stays independent of Lighthouse installs.
+export async function performance({ site }) {
+  await S(site, 'phase', 'performance');
+  if (state(site).intake?.performance === false) {
+    await setState(site, 'phases.performance.result', { status: 'skipped', reason: 'parity only' });
+    return {};
+  }
+  const starting = state(site).phases.performance.startedAt;
+  await S(site, 'phase', 'performance');
+  const resumed = state(site).phases.performance.startedAt;
+  const audit = expectCode(await npm(site, ['run', 'audit:lighthouse', '--', '--out', 'review/lighthouse/before', '--', ...VERIFY_FLAGS]), 2);
+  const summary = readJson(join(site, 'review/lighthouse/before/summary.json'));
+  write(join(site, 'docs', 'performance.md'), `# Performance\n\n## Not covered\n\n${summary.errors.join('\n')}\n`);
+  await setState(site, 'phases.performance.result', { status: 'complete', report: 'docs/performance.md' });
+  return { audit, starting, resumed };
 }
 
 // ---------------------------------------------------------------------------------------------

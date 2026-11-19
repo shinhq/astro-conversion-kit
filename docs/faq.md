@@ -49,8 +49,8 @@ plan lists the store URLs as out of scope and the redirects that would point at 
 
 ## Can I redesign the site while converting?
 
-Not in the same step. The default build reproduces the live site exactly, faults included, so the
-gates can prove nothing was lost. Fixes and design changes go in as proposals that ship only in a
+The conversion preserves the live site's design and content. Content fixes and design changes go
+in as proposals that ship only in a
 `PROPOSALS=on` build until you approve them. Once the converted site is live and gated, redesigning
 it is ordinary Astro work, and the gates tell you exactly what each change touched.
 
@@ -94,14 +94,12 @@ You still get the whole conversion: every gate, the visual review against a loca
 suggestions and a runbook. Deploying is then the runbook's first step, and the staging audit is
 listed under "Not covered" until it runs.
 
-## Why do links on the preview take me to the live site?
+## How do links work on the preview?
 
-The build keeps every link exactly as the live site wrote it, and WordPress writes internal links
-absolute (`https://www.example.com/team/`). On a preview or staging host, clicking one goes back
-to live, and a launch audit of the preview crawls only its first page. Root-relative links can
-be switched on as a proposal (`PROPOSALS=on` builds only), recorded with `field: "markup"`; see
-[build-rules.md](../skills/convert-site/references/build-rules.md), "URLs in the captured markup".
-After launch, the absolute links point at the new site, since it answers on the same host.
+The build converts links to local destinations such as `https://www.example.com/team/` to
+root-relative links such as `/team/`. That keeps navigation on the current preview, staging,
+or production host. Links to excluded paths and live-only WordPress services keep their original
+destinations. See [the build rules](../skills/convert-site/references/build-rules.md#urls-in-the-captured-markup).
 
 ## Will my search rankings survive?
 

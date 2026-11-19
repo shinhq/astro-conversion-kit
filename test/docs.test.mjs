@@ -71,16 +71,20 @@ test('CLAUDE.md is byte-equal to AGENTS.md', () => {
   assert.ok(readFileSync(join(ROOT, 'CLAUDE.md')).equals(readFileSync(join(ROOT, 'AGENTS.md'))));
 });
 
-test('README carries the paste line, both install paths and the examples heading', () => {
+test('README documents the prompt, manual install, converted-site usage and default performance pass', () => {
   const readme = read('README.md');
   assert.ok(
-    readme.includes('Convert https://example.com to Astro with https://github.com/ethanplusai/astro-conversion-kit'),
+    readme.includes('Convert https://example.com to Astro with https://github.com/shinhq/astro-conversion-kit'),
     'paste line',
   );
   const blocks = fencedBlocks(readme).join('\n');
-  assert.match(blocks, /^npx skills add ethanplusai\/astro-conversion-kit$/m, 'npx skills add block');
-  assert.match(blocks, /^\/plugin marketplace add ethanplusai\/astro-conversion-kit$/m, 'plugin marketplace line');
-  assert.match(blocks, /^\/plugin install astro-conversion/m, 'plugin install line');
+  assert.match(blocks, /^npx skills add shinhq\/astro-conversion-kit$/m, 'npx skills add block');
+  assert.match(blocks, /^git clone https:\/\/github\.com\/shinhq\/astro-conversion-kit$/m, 'clone command');
+  assert.match(blocks, /^npm run verify\nnpm run review:serve$/m, 'converted-site commands');
+  assert.match(readme, /^## Usage$/m);
+  assert.match(readme, /^## Default post-conversion optimizations$/m);
+  assert.match(readme, /`parity only`/);
+  assert.doesNotMatch(readme, /\b(?:Claude|marketplace|Next\.?js)\b|^\/plugin\b/im);
   assert.match(readme, /^## Results$/m, 'results heading');
   assert.match(readme, /\]\(docs\/examples\/results\.png\)/, 'results image');
 });

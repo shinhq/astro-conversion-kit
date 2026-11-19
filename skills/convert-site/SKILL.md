@@ -17,9 +17,10 @@ stopping again, and ends with a pull request the person merges and a runbook the
    and `styles.mjs` on live, `css-coverage.mjs`, `launch-audit --old-url` and `pre-launch
    --predecessor-url`. Analytics are blocked on their live page loads, so no visit is counted.
    Never submit a form on it, log in, or fetch a page by hand to fill a gap.
-3. **The default build equals live, faults included.** Content is moved from captured markup,
-   never retyped or tidied. Every oddity is a decision row that says "reproduce live by default".
-   A forced difference is an exception; an improvement is a proposal (`PROPOSALS=on` only).
+3. **Prove parity first.** Move content from captured markup and normalize locally served
+   navigation. Record existing oddities as decisions to reproduce live. After parity, keep
+   measured performance improvements that pass verification. A forced difference is an
+   exception. A change to the live experience is a proposal (`PROPOSALS=on` only).
 4. **Gates on every commit, never softened.** Never edit `baseline/` to pass (only the `keep`
    flags in `baseline/scripts.json`). A skip is not a pass; "Not covered" is never a pass.
 5. **`main` gets the scaffold commit and nothing else.** On a new, empty repository init-site
@@ -44,7 +45,7 @@ The scripts import `parse5`, `playwright` and the rest from the kit's `node_modu
 `$KIT/package.json` or `$KIT/node_modules` is missing (an install that copied only the skill
 folders has neither), clone the kit and install it, then use the clone as `KIT`:
 
-    git clone https://github.com/ethanplusai/astro-conversion-kit <folder>/astro-conversion-kit
+    git clone https://github.com/shinhq/astro-conversion-kit <folder>/astro-conversion-kit
     npm install --prefix <folder>/astro-conversion-kit
 
 ## Step 0: preflight and fingerprint (before the intake message)
@@ -85,6 +86,7 @@ chained with `&&`: each rewrites `state.json`, and a chain failing partway leave
 | 7 | `gates` | The full gates | `npm run verify` exits 0 |
 | 8 | `visual` | Every template at 390, 768, 1440; every page at 390 and 1440 | Every pair passes |
 | 9 | `components` | Optional, off by default (`references/components-optional.md`) | Gates and diffs still pass, one separate commit |
+| 9a | `performance` | Default optimization checklist and before/after release Lighthouse (`references/performance.md`) | Results recorded and kept changes pass gates and visual review, or intake says `parity only` |
 | 10 | `prelaunch` | `pre-launch`, staging deploy, `verify-live`, `launch-audit`, one test submission | `prelaunch-reconcile.mjs` exits 0 (`references/phases.md` §10); audit blockers fixed or listed |
 | 11 | `suggestions` | `suggest-improvements` with `gates.json` and `review/` | `docs/suggestions.md` with its "From the review" section |
 | 12 | `pr` | Runbook, push, PR, final report | The PR quotes gate output and every "Not covered" section |
@@ -99,7 +101,8 @@ The skills each phase uses, with their own rules: `capture-site` (2), `parity-ga
 `references/build-rules.md` is binding. Layouts and the shared header, navigation and footer are
 always components; content blocks are the captured markup, moved by a script. Media at its
 original paths, fonts self-hosted, CSS by coverage pruning (`css-coverage.mjs` then
-`css-prune.mjs`), never a rewrite. Forms per `references/forms.md`, third-party scripts per
+`css-prune.mjs`), never a rewrite. The build hook normalizes same-site navigation per the build
+rules. Forms per `references/forms.md`, third-party scripts per
 `references/third-party.md`. `redirects.csv` is the single redirect source: a new redirect is a
 row whose `source` is `decision` and whose `note` names the decision id, then `npm run
 redirects:build`; never hand-edit the generated rules. One commit per template (`feat:
@@ -159,23 +162,21 @@ the PR" goes on the needs-you list. The body, in this order:
     ## Decisions          the docs/plan.md Decisions table, and every non-default choice
     ## Gate output        `npm run verify` output, verbatim, in a code block, with every skip line;
                           then every row prelaunch-reconcile accepted, as "reproduced from live (dN)"
-    ## Visual review      `npm run review:check` output, every docs/visual-overrides.json entry
-                          (route, id, threshold, reason), every bannerClosed and heightMismatch; the contact sheets are
-                          review/index.html and review/all.html (local; npm run review:sheet)
+    ## Visual review      `npm run review:check` output, all visual overrides, bannerClosed and heightMismatch rows,
+                          and the local contact sheets at review/index.html and review/all.html
+    ## Performance       docs/performance.md results, kept changes, below-target scores and coverage, or parity-only choice
     ## Staging            the staging URL, verify-live result, the launch-audit blockers and their state
     ## Suggestions        counts per category, the medium and high risk items, the applyable ids
     ## Not covered        pre-launch's and launch-audit's "Not covered" sections, verbatim, each
-                          under its own heading; then capture-site's, visual-review's and suggestions'
+                          under its own heading; then capture-site's, visual-review's, performance's and suggestions'
     ## Waiting on you     every state.needsYou item, in runbook order
 
 ## The final report (to the person)
 
-Lead with the PR link (and "draft: waiting on the form id" when it is one), then: what was
-converted (counts), gates and visual review in one line each, the staging URL, the needs-you list
-under **Waiting on you** read from `state.mjs --dir $SITE get needsYou` (each item with the exact
-command or click, in runbook order), then every "Not covered" section verbatim. Say "PR open,
-waiting on your merge", never "done" or "live". Stop any review server you started
-(`npm run review:serve -- --stop`, and `npx astro preview stop` if you used the preview), then stop.
+Lead with the PR link and draft blocker if present. Include counts, gate, visual and performance
+results, and the staging URL. Quote all "Not covered" sections verbatim. Under **Waiting on you**,
+read `state.mjs --dir $SITE get needsYou` and give the exact commands or clicks in runbook order.
+Say "PR open, waiting on your merge". Stop any review server you started (`npm run review:serve -- --stop`, and `npx astro preview stop` if you used the preview).
 
 ## Resuming
 
@@ -196,5 +197,4 @@ capture resumes with `--resume`. Never repeat the intake. Applying a suggestion 
 | `references/hosting-vercel.md` | Project, public noindexed staging, indexing, Blob media, opt-in protection |
 | `references/hosting-cloudflare.md` | Pages project, `_redirects`, `_headers`, R2 media function, query redirects |
 | `references/runbook.md` | `docs/LAUNCH.md`: A needs you, B closeout, C launch day, D 30-day watch |
-| `references/components-optional.md` | The optional component pass |
 | `references/apply-suggestion.md` | `--apply <id>`: proposal records, branch commit, gates, sheet |

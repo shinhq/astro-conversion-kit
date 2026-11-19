@@ -11,6 +11,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "audit:lighthouse": "node scripts/audit-lighthouse.mjs",
     "test": "node --test \"test/**/*.test.mjs\"",
     "baseline": "node scripts/build-baseline.mjs --capture capture --out baseline",
     "assets:copy": "node scripts/copy-assets.mjs --capture capture --site .",

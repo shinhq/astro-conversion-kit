@@ -115,6 +115,27 @@ test('a passing gate: nothing to reconcile, exit 0', async () => {
   assert.match(result.stdout, /^prelaunch-reconcile: 0 failing checks, 0 accepted, 0 blocking$/m);
 });
 
+test('internal references are replayed past the evidence cap and require a real host route', async () => {
+  const site = join(root, 'host-refs');
+  const dist = join(site, 'dist');
+  mkdirSync(join(dist, 'feed'), { recursive: true });
+  writeFileSync(join(dist, 'feed', 'index.xml'), '<rss/>');
+  const config = join(site, 'vercel.json');
+  writeFileSync(config, JSON.stringify({ rewrites: [{ source: '/feed/', destination: '/feed/index.xml' }] }));
+  const pages = Array.from({ length: 25 }, (_, i) => `page-${i}.html`);
+  for (const page of pages) writeFileSync(join(dist, page), '<a href="/feed/">Feed</a>');
+  const check = failing('output.internal-refs', '25 references in the build point at paths no file would serve',
+    pages.slice(0, 20).map((page) => `${page} -> /feed`), 'file');
+  const result = await reconcile([check], { cwd: site });
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(parsed(result).accepted[0].rule, 'host-routes');
+  assert.equal(parsed(result).accepted[0].rows.length, 25);
+  writeFileSync(config, '{}');
+  const broken = await reconcile([check], { cwd: site });
+  assert.equal(broken.code, 1, broken.stderr + broken.stdout);
+  assert.equal(parsed(broken).blocking[0].rows[0].reason, 'no verified host route or stored file');
+});
+
 test('the two predecessor slash-rule checks are accepted under the narrow rule, no decision needed', async () => {
   const result = await reconcile([SLASH_ROWS.wildcards, SLASH_ROWS.chains, passing('output.h1')], { planFile: bare });
   assert.equal(result.code, 0, result.stdout + result.stderr);

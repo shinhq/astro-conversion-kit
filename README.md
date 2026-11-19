@@ -5,50 +5,75 @@ same URLs, the same content, the same titles, descriptions, canonicals and struc
 same media at the same paths, every redirect the old site performs, and a design checked pixel by
 pixel at 390, 768 and 1440 px. No PHP, no plugins, no database, no server to patch.
 
-It is a set of Agent Skills, so it runs in Claude Code, Codex or any agent that reads `SKILL.md`.
-Plain Node scripts do everything that has to be exact, and gates prove each part before the work
-moves on. A run ends with a pull request, a noindexed staging deploy and a launch runbook.
+The kit works with coding agents that can read `SKILL.md` and run shell commands. A conversion
+ends with a pull request, a noindexed staging deploy, and a launch runbook.
 
 WordPress is the first-class case. Anything served over HTTP works, because the capture reads the
 rendered HTML; see [docs/platforms.md](docs/platforms.md).
 
-## Start
+## Usage
 
-Paste this into your coding agent, with your site in place of example.com:
-
-```
-Convert https://example.com to Astro with https://github.com/ethanplusai/astro-conversion-kit
-```
-
-That is the whole job. The agent installs the skills, asks you one message of questions (each
-with a stated default: where the repo goes, which host, how forms are handled), and runs to a pull
-request without stopping again. Answer "defaults" and it picks every default.
-
-To install the skills first, into any agent that reads Agent Skills:
+Give your coding agent this prompt and replace `https://example.com` with your live site URL.
 
 ```
-npx skills add ethanplusai/astro-conversion-kit
+Convert https://example.com to Astro with https://github.com/shinhq/astro-conversion-kit
 ```
 
-In Claude Code, from its plugin marketplace:
+The agent starts with `convert-site` and asks once about the repository, hosting, and any preferences
+it needs. Reply `defaults` to run the full conversion and performance pass. Reply `parity only`
+to skip the performance pass. You can also include either preference in the original prompt.
+
+### Install manually
+
+Install the full skill set with the Skills CLI.
 
 ```
-/plugin marketplace add ethanplusai/astro-conversion-kit
-/plugin install astro-conversion@astro-conversion-kit
+npx skills add shinhq/astro-conversion-kit
 ```
 
-Or from a clone, which also lets you run any script by hand:
+For a local checkout that lets you run the kit scripts directly, use these commands.
 
 ```
-git clone https://github.com/ethanplusai/astro-conversion-kit
+git clone https://github.com/shinhq/astro-conversion-kit
 cd astro-conversion-kit
-npm install
+npm ci
 npx playwright install chromium
 node skills/convert-site/scripts/preflight.mjs
 ```
 
-`preflight.mjs` says which tools the run needs (Node, git, gh, the hosting CLI, the Playwright
-browser) and whether each is installed and logged in. Every script prints `--help`.
+Preflight checks Node, Git, GitHub CLI, hosting tools, and Playwright Chromium.
+
+### Work in the converted site
+
+Run these from the converted site's repository. Use any site-specific verification flags listed in
+its launch runbook. The review server applies the generated host routing for local previews.
+
+```sh
+npm run build
+npm run verify
+npm run review:serve
+```
+
+Use `npm run audit:lighthouse` to repeat the performance audit after the default pass installs
+Lighthouse. Run `npm run audit:lighthouse -- --help` for route selection and release verification flags.
+
+## Default post-conversion optimizations
+
+Once the Astro build passes parity and visual review, the agent audits representative pages on
+mobile and desktop with Lighthouse. It evaluates seven optimizations and keeps changes that
+improve measured results and pass parity and interaction checks.
+
+1. **WebP and local images.** Generate smaller WebP derivatives from suitable captured images and retain the originals at their existing URLs.
+2. **Responsive images.** Generate compatible widths and set `srcset`, `sizes`, and intrinsic dimensions so browsers can choose a suitable file.
+3. **Hero and below-fold loading.** Prioritize the image that drives Largest Contentful Paint, lazy-load below-fold media, and defer eligible hero video until the still has painted.
+4. **CSS and fonts.** Prune unused styles conservatively, inline small critical styles where useful, and self-host and selectively preload fonts.
+5. **Initial layout and widgets.** Render initially open panels immediately and defer offscreen gallery or slider initialization where supported.
+6. **First-party JavaScript.** Defer blocking scripts and remove demonstrably unused WordPress code while preserving dependencies and behavior.
+7. **Analytics and tags.** Defer noncritical tracking while preserving consent, tag IDs, and form attribution. Check that tracking failures leave forms usable.
+
+The converted repo's `docs/performance.md` records before-and-after scores, loading metrics,
+image transfer sizes, shipped changes, and coverage gaps. Changes to the live experience go
+through the proposal workflow. [Performance playbook](skills/convert-site/references/performance.md)
 
 ## Results
 
@@ -85,12 +110,13 @@ Counts and timings are in [docs/examples](docs/examples/README.md).
 4. **Scaffold and baseline.** A new Astro repo on an `astro-rebuild` branch, with the capture
    frozen into `baseline/` so the gates never need the old site again.
 5. **Build.** Layouts first, then pages from the captured markup, the captured CSS pruned by
-   coverage, media at the original paths, forms and third-party scripts carried over by list.
+   coverage, same-site navigation converted to root-relative links, and media at original paths.
 6. **Gates.** Routes, redirects, SEO tags, visible text, links, media, sitemap, feeds, forms and
    scripts, checked against the baseline on every commit.
 7. **Visual review.** Live and new screenshots per template at three widths, pixel-diffed, plus a
    computed-style check, until every pair passes; then every page at 390 and 1440.
-8. **Launch checks.** `pre-launch` on the repo, a staging deploy, `launch-audit` against staging,
+8. **Performance.** Run the [default optimization pass](#default-post-conversion-optimizations).
+9. **Launch checks.** `pre-launch` on the repo, a staging deploy, `launch-audit` against staging,
    a suggestions report, and the PR. You merge and launch; `post-launch` watches the first 30 days.
 
 [docs/process.md](docs/process.md) says what each phase produces and what proves it done.
@@ -102,12 +128,12 @@ Counts and timings are in [docs/examples](docs/examples/README.md).
 - A noindexed staging deploy on Vercel or Cloudflare Pages (or a local preview and a first
   runbook step to deploy, if you have no hosting account yet).
 - Contact sheets: live, new and diff screenshots side by side for every template and width.
+- `docs/performance.md`: before-and-after measurements and results from the
+  [default optimization checklist](skills/convert-site/references/performance.md).
 - `docs/suggestions.md`: broken links, missing alt text, duplicate titles, slow images and other
   improvements the agent found but did not make, each with evidence, effort and risk.
 - `docs/LAUNCH.md`: the runbook, in order, with the exact commands for your host.
 - `npm run verify` in the new repo, so the gates keep working after the old site is gone.
-
-The default build reproduces the live site, faults included. Fixes are proposals you approve.
 
 ## WordPress, specifically
 
