@@ -35,26 +35,15 @@ parity and this file is wrong: say so and fix this file.
   in the plan under "Forms kept as is" with its action host; only a POST form posting to the
   old site (an empty or relative action, the live origin, `/wp-admin/admin-ajax.php`,
   `/wp-comments-post.php`) is rewired to the form endpoint (`forms.md`).
-- **Content links stay as captured.** Every `<a href>` (and `<area href>`, a form `action` other than the rewired ones above, and
-  the head's canonical, alternate, REST and oEmbed links) keeps the URL the capture saved, a
-  same-origin absolute one (`https://<live host>/team`) included: never rewrite one to
-  root-relative or to another host. The links gate counts same-origin absolute links as internal.
-  Dropping or changing one because it cannot work on a static site is a `links` exception
-  (`exceptions.json`, SKILL.md "Decisions, exceptions, proposals"), never an edit.
-- **So a preview's links lead to live.** WordPress writes every internal link absolute, so on a
-  staging or preview host each click on a captured same-origin `<a href>` goes back to the live
-  site, and `launch-audit` on that host crawls only the first page. The default build keeps it
-  that way (it equals live); say so when you hand over the preview URL. To make a preview that
-  can be clicked through, offer it as a proposal: one decision, and a `proposalOn(id)` switch in
-  a small helper the page body passes through, that rewrites body `<a href>` on the live origin
-  (`https://`, `http://` or `//`, with or without `www.`) to root-relative. It leaves head tags
-  (canonical, alternate, og) alone and keeps any href that a `link` exception records exactly
-  as recorded. Record it in `proposals.json` with `field: "markup"`, one record per page it
-  changes (`from` the live href form, `to` the root-relative one); no gate compares it, since the
-  links gate already counts both forms as internal. The helper is a dozen lines: match
-  `href="https://www.example.com/..."` (and the `http://`, `//` and apex forms) in the body
-  markup, replace the origin with nothing when `proposalOn(id)` is true, and return the markup
-  unchanged otherwise.
+- **Same-site navigation is root-relative by default.** The scaffold's Astro build hook patches
+  body `<a href>` and `<area href>` on the capture's domain, including apex and `www` forms and
+  absolute or protocol-relative HTTP(S) URLs. It preserves the path, query, and fragment for
+  destinations served by the build, one verified local redirect, or configured media storage.
+  Use the build log's rewrite and page counts in the decision row. Preserve excluded or unbuilt
+  destinations, URLs with a `link` exception, and live WordPress services, including shortlinks
+  whose query rules cannot be verified locally. A page with an off-site `<base href>` is reported
+  for review. The hook patches generated HTML only, including the 404 page and custom output
+  directories. Head metadata, external links, and form actions follow their existing rules.
 - **WordPress API head links are kept as captured.** `wp-json/` (`rel="https://api.w.org/"`),
   `xmlrpc.php?rsd` (`EditURI`) and `wp-json/wp/v2/pages/N` (`alternate`) stay in the head
   although nothing answers them on a static host. `npm run links:exceptions`

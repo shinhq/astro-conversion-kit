@@ -25,6 +25,7 @@ before(async () => {
   results.gates = await R.gates({ site });
   results.visual = await R.visual({ site, live });
   await R.components({ site });
+  results.performance = await R.performance({ site });
   results.prelaunch = await R.prelaunch({ site, live });
   results.suggestions = await R.suggestions({ site });
   results.pr = await R.pr({ site, results });
@@ -43,6 +44,7 @@ test('1 intake: the answers and the needs-you list are in state', () => {
   const { intake, needsYou } = R.state(SITE);
   assert.equal(intake.hosting, 'vercel');
   assert.equal(intake.platform, 'wordpress');
+  assert.equal(intake.performance, true);
   assert.ok(needsYou.length >= 3);
   assert.equal(results.intake.preflight.tools.gh.present, false, 'no CLI is reachable from the run');
 });
@@ -97,6 +99,11 @@ test('6 build: the seven gates pass on the templates and then on every path; the
     return { tag: href ? `link ${href.replace(fixture.origin, '')} ${media ?? ''}` : 'style', index };
   });
   const routes = R.readJson(file('baseline', 'routes.json'));
+  const capturedHome = readFileSync(file('capture', routes.find((r) => r.path === '/').snapshot), 'utf8');
+  const builtHome = readFileSync(file('dist', 'index.html'), 'utf8');
+  assert.ok(capturedHome.includes(`href="${fixture.origin}/about/"`));
+  assert.ok(builtHome.includes('href="/about/">About'));
+  assert.ok(!builtHome.includes(`href="${fixture.origin}/about/"`));
   for (const [path, page] of [['/', 'index.html'], ['/about/', join('about', 'index.html')], ['/contact/', join('contact', 'index.html')]]) {
     const built = readFileSync(file('dist', page), 'utf8');
     const live = headCss(readFileSync(file('capture', routes.find((r) => r.path === path).snapshot), 'utf8'));
@@ -143,16 +150,27 @@ test('9 components: skipped, off by default', () => {
   assert.equal(R.state(SITE).phases.components.result, 'skipped: off by default');
 });
 
+test('9a performance: enabled by default, resumable, and skippable at intake', async () => {
+  assert.equal(results.performance.starting, results.performance.resumed);
+  assert.equal(R.state(SITE).phases.performance.result.status, 'complete');
+  assert.match(readFileSync(file('docs', 'performance.md'), 'utf8'), /## Not covered\n\nLighthouse is unavailable/);
+  const parityOnly = `${SITE}-empty`;
+  await R.S(parityOnly, 'set', 'intake.performance', 'false');
+  await R.performance({ site: parityOnly });
+  assert.deepEqual(R.state(parityOnly).phases.performance.result, { status: 'skipped', reason: 'parity only' });
+  assert.ok(!existsSync(join(parityOnly, 'review')));
+});
+
 // pre-launch with --predecessor-url fails two checks that read the kit's trailing-slash
 // normalisation wrongly (upstream, in the launch skills): the slash rules count as wildcards, and
 // the live /about -> /about/ redirect looks like a loop once trailing slashes are ignored.
-// prelaunch-reconcile accepts exactly those two under its narrow rule, and the robots.txt check
-// that flags the sister site's Sitemap: line live carried (kept as captured), and exits 0.
-test('10 prelaunch: prelaunch-reconcile exits 0, accepting only the two slash-rule checks and the live robots line; verify-live passes staging and release', () => {
+// The static output check also misses the compiled rewrite for the normalized RSS links.
+test('10 prelaunch: reconciles proven host routes and known parity findings; verify-live passes staging and release', () => {
   ok(results.prelaunch.reconcile);
   const { accepted, blocking } = JSON.parse(results.prelaunch.reconcile.stdout);
   assert.deepEqual(blocking, []);
-  assert.deepEqual(accepted.map((a) => `${a.id} ${a.rule}`).sort(), ['output.robots-txt live-robots', 'predecessor.redirect-chains slash', 'predecessor.wildcard-redirects slash'], shown(results.prelaunch.preLaunch));
+  assert.deepEqual(accepted.map((a) => `${a.id} ${a.rule}`).sort(), ['output.internal-refs host-routes', 'output.robots-txt live-robots', 'predecessor.redirect-chains slash', 'predecessor.wildcard-redirects slash'], shown(results.prelaunch.preLaunch));
+  assert.ok(accepted.find((a) => a.id === 'output.internal-refs').rows.every(({ text }) => text.endsWith(' -> /feed')));
   assert.deepEqual(accepted.find((a) => a.id === 'output.robots-txt').rows.map((r) => r.text), ['the Sitemap: line points at other.example.com, not 127.0.0.1']);
   const failing = results.prelaunch.gate.checks.filter((c) => c.status === 'fail');
   const chains = failing.find((c) => c.id === 'predecessor.redirect-chains');
@@ -163,12 +181,11 @@ test('10 prelaunch: prelaunch-reconcile exits 0, accepting only the two slash-ru
   assert.match(results.prelaunch.stagingLive.stdout, /^verify-live: \d+ checked, 0 failed$/m);
   ok(results.prelaunch.releaseLive);
   assert.equal(results.prelaunch.audit.code, 0, shown(results.prelaunch.audit));
-  // Staging's robots.txt blocks everything, so the audit crawls only with --ignore-robots. The
-  // fixture's content links are absolute to the live origin (as WordPress writes them), so on
-  // staging they are off-origin and dropped: the crawl reaches the pages linked relatively.
+  // Staging's robots.txt blocks everything, so the audit crawls only with --ignore-robots.
+  // The homepage's originally absolute About link now leads to the staging instance.
   const crawl = R.readJson(file('review', 'launch-audit', 'crawl.json'));
   assert.ok(crawl.pages.some((p) => p.status === 200 && new URL(p.url).pathname === '/'), JSON.stringify(crawl.pages));
-  assert.ok(crawl.dropped.some((d) => d.reason === 'off-origin'), 'absolute live links are named as dropped');
+  assert.ok(crawl.pages.some((p) => p.status === 200 && p.url === `${R.state(SITE).staging}/about/`), JSON.stringify(crawl.pages));
   assert.ok(existsSync(file('docs', 'launch', 'audit-baseline.json')));
 });
 

@@ -36,8 +36,8 @@ differing pixels or fewer, with a threshold of 0.1 and anti-aliased pixels not c
 Reads and writes PNG files in plain JavaScript, so pixelmatch has raw pixels to compare and the
 diff image can be saved. Playwright writes PNG screenshots; pngjs decodes them. It needs no native
 build step, which keeps installation working on any machine Node runs on. Image resizing or
-optimisation libraries (such as sharp) were left out: the kit never changes an image, it only
-compares and copies.
+optimisation libraries such as Sharp are site-specific, and can be pinned in the converted
+site if its performance pass generates derivatives.
 
 ## css-tree
 
@@ -46,3 +46,11 @@ browser coverage shows no page used at any width, without disturbing at-rules, m
 the rules that stay, and the capture uses it to find the `url()` references that are part of the
 media and font set. Splitting a stylesheet on braces breaks on strings, comments and nested
 at-rules. css-tree has two small dependencies and no native code.
+
+### Lighthouse in the converted site
+
+The default performance pass installs `lighthouse@13.6.0` as a converted-site development
+dependency. It provides comparable mobile and desktop audits for performance, accessibility,
+best practices, and SEO. Playwright supplies browser automation and cannot produce these audit
+reports on its own. The kit's capture and parity scripts continue to use the five dependencies
+above.

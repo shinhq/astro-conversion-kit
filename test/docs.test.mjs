@@ -74,12 +74,12 @@ test('CLAUDE.md is byte-equal to AGENTS.md', () => {
 test('README carries the paste line, both install paths and the examples heading', () => {
   const readme = read('README.md');
   assert.ok(
-    readme.includes('Convert https://example.com to Astro with https://github.com/ethanplusai/astro-conversion-kit'),
+    readme.includes('Convert https://example.com to Astro with https://github.com/shinhq/astro-conversion-kit'),
     'paste line',
   );
   const blocks = fencedBlocks(readme).join('\n');
-  assert.match(blocks, /^npx skills add ethanplusai\/astro-conversion-kit$/m, 'npx skills add block');
-  assert.match(blocks, /^\/plugin marketplace add ethanplusai\/astro-conversion-kit$/m, 'plugin marketplace line');
+  assert.match(blocks, /^npx skills add shinhq\/astro-conversion-kit$/m, 'npx skills add block');
+  assert.match(blocks, /^\/plugin marketplace add shinhq\/astro-conversion-kit$/m, 'plugin marketplace line');
   assert.match(blocks, /^\/plugin install astro-conversion/m, 'plugin install line');
   assert.match(readme, /^## Results$/m, 'results heading');
   assert.match(readme, /\]\(docs\/examples\/results\.png\)/, 'results image');

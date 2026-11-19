@@ -208,15 +208,27 @@ test('PUBLIC_INDEXABLE=true in phases §7, §10 and the runbook is a local build
   assert.match(flat(read('references/runbook.md')), /`PUBLIC_INDEXABLE=true` in these commands sets it for that one local command only, never the host/);
 });
 
-test('build-rules.md: content links stay as captured; same-origin asset URLs are root-relative by default, one decision row', () => {
+test('build-rules.md: locally served navigation and asset URLs are root-relative by default', () => {
   const rules = flat(read('references/build-rules.md'));
-  assert.match(rules, /\*\*Content links stay as captured\.\*\*/);
-  assert.match(rules, /never rewrite one to root-relative or to another host/);
-  assert.match(rules, /is a `links` exception/);
+  assert.match(rules, /\*\*Same-site navigation is root-relative by default\.\*\*/);
+  assert.match(rules, /preserves the path, query, and fragment/);
+  assert.match(rules, /Preserve excluded or unbuilt destinations, URLs with a `link` exception/);
   assert.match(rules, /\*\*Same-origin asset URLs are root-relative, by default\.\*\*/);
   for (const part of ['`<script src>`', '`<img src>` and `srcset`', '`<source>`', 'preload']) assert.ok(rules.includes(part), part);
   assert.match(rules, /a module script from live fails CORS/);
   assert.match(rules, /One decision row covers the set/);
+});
+
+test('performance defaults on after parity and documents all seven optimization checks', () => {
+  const phases = read('references/phases.md');
+  assert.match(phases, /S phase performance[\s\S]*"status":"skipped","reason":"parity only"[\s\S]*S phase prelaunch/);
+  assert.match(flat(phases), /With `true` or a missing setting on an older run, follow/);
+  assert.match(read('references/intake.md'), /"components":false,"performance":true/);
+  const checklist = read('references/performance.md').split('## Default optimization checklist')[1].split('## Accept')[0];
+  assert.deepEqual([...checklist.matchAll(/^\d\. \*\*(.+?)\.\*\*/gm)].map((match) => match[1]), [
+    'WebP encoding and image localization', 'Responsive image delivery', 'Hero and below-fold loading',
+    'CSS and fonts', 'Initial layout and widgets', 'First-party JavaScript', 'Analytics and tags',
+  ]);
 });
 
 test('no live sitemap: build-rules and phases ship sitemap-index.xml as a decision row, and the routes gate allows it', () => {

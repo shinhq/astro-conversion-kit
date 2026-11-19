@@ -4,6 +4,7 @@
 // `from: ""` records a field the build adds, `to: ""` a field the build removes.
 // With PROPOSALS=on, proposals.json (same record shape) is loaded after it.
 import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export const DEFAULT_EXCEPTIONS = 'exceptions.json';
 export const DEFAULT_PROPOSALS = 'proposals.json';
@@ -31,15 +32,16 @@ function checkKindRecord(record, where) {
 }
 
 // Only the default file name may be missing; a path somebody chose must exist (exit 2).
-function readRecords(file, defaultName) {
-  if (!existsSync(file)) {
+function readRecords(file, defaultName, cwd) {
+  const path = cwd ? resolve(cwd, file) : file;
+  if (!existsSync(path)) {
     if (file === defaultName) return [];
     process.stderr.write(`${file}: exceptions file not found\n`);
     process.exit(2);
   }
   let records;
   try {
-    records = JSON.parse(readFileSync(file, 'utf8'));
+    records = JSON.parse(readFileSync(path, 'utf8'));
   } catch (error) {
     throw new Error(`${file}: not valid JSON (${error.message})`);
   }
@@ -60,9 +62,9 @@ function readRecords(file, defaultName) {
   return records;
 }
 
-export function loadExceptions(file = DEFAULT_EXCEPTIONS, { proposals = DEFAULT_PROPOSALS, env = process.env } = {}) {
-  const records = readRecords(file, DEFAULT_EXCEPTIONS);
-  if (env.PROPOSALS === 'on') records.push(...readRecords(proposals, DEFAULT_PROPOSALS));
+export function loadExceptions(file = DEFAULT_EXCEPTIONS, { proposals = DEFAULT_PROPOSALS, env = process.env, cwd } = {}) {
+  const records = readRecords(file, DEFAULT_EXCEPTIONS, cwd);
+  if (env.PROPOSALS === 'on') records.push(...readRecords(proposals, DEFAULT_PROPOSALS, cwd));
   return records;
 }
 

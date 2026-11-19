@@ -246,6 +246,10 @@ Read `build-rules.md`, `forms.md`, `third-party.md` and your host file first. In
 5. Forms (`forms.md`) and third-party scripts (`third-party.md`).
 6. Redirects: `npm run redirects:build`, and again after the first `npm run build`, so the
    slash rules pick up every file type the build ships (the compiler scans `dist/`).
+7. After regenerating redirects, rebuild before checking navigation. The scaffold's build hook
+   normalizes body links to locally served destinations using the compiled redirects. Record the
+   final build's same-site link counts as a decision and follow representative navigation across
+   pages on the local review server. Keep links to live-only services in their captured form.
 
 **Gates on every template commit.** `npm run verify` stops at the first failing gate, and links,
 redirects and sitemaps are expected to fail until every page exists. So during the template work
@@ -366,6 +370,25 @@ worst pair.
 Only when the intake said "components" or the person asked: `components-optional.md`. Otherwise
 `S phase components` then `S set phases.components.result '"skipped: off by default"'`.
 
+## 9a. performance
+
+    S phase performance
+    S get intake.performance
+
+`false` means the person chose `parity only`. Record `S set phases.performance.result
+'{"status":"skipped","reason":"parity only"}'` and continue to phase 10. With `true` or a
+missing setting on an older run, follow [the performance playbook](performance.md).
+Keep before-and-after audits in separate folders under `review/lighthouse/`. When resuming, use
+the recorded checklist and starting audit. Record progress in `docs/performance.md` as each
+check is evaluated. If a pre-launch fix changes a measured template or shared asset, repeat the
+affected performance checks against the final build and update the report.
+
+**Proof:** `docs/performance.md` covers all seven checklist items, reports measurements or
+specific **Not covered** reasons, and every kept change passes the phase 7 and 8 checks.
+Set `phases.performance.result` to `{"status":"complete","report":"docs/performance.md"}`
+and carry any below-target scores and coverage gaps into the PR. A parity-only decision is
+complete when its skip is recorded in state.
+
 ## 10. prelaunch
 
     S phase prelaunch
@@ -386,6 +409,10 @@ reconcile accepts it only then: no remote, and a needs-you item that says to pus
 Then reconcile what failed with live:
 
     node $KIT/skills/convert-site/scripts/prelaunch-reconcile.mjs --findings review/pre-launch/gate.json --baseline baseline --plan docs/plan.md
+
+For `output.internal-refs`, reconciliation replays the static check and independently verifies
+destinations served through generated host routes or the media store, such as normalized RSS
+links. Keep unresolved references blocking and include accepted evidence in the PR.
 
 A failing check is accepted only when every row it names (title, description, h1, canonical,
 og:image, favicon, placeholder text) is what live had for that path and a `docs/plan.md`
@@ -421,10 +448,9 @@ launch updates what reviewers and the audit see. Then:
     node $KIT/skills/launch-audit/scripts/launch-audit.mjs --url <staging url> --staging --ignore-robots --old-url $LIVE --out $SITE/review/launch-audit
 
 `--ignore-robots` is a bare flag (`--ignore-robots true` prints the help): staging's robots.txt
-blocks everything, and without it the audit crawls no page. Links the captured content writes
-absolute to the live origin (as WordPress does) are off-origin on staging, so the audit crawls
-only what is linked relatively and lists the rest as dropped: copy that line into the PR's Not
-covered.
+blocks everything, and without it the audit crawls no page. Confirm the crawl follows normalized
+same-site navigation beyond the homepage. Report any preserved live-only destinations that limit
+coverage and quote the audit's Not covered output in the PR.
 On Vercel with the default public staging, no `--bypass` is needed; an exit 3 with
 `deployment protection: ...` there means the run was pointed at the raw deployment URL: rerun
 on the alias. Only when the owner opted in to protection, add
@@ -454,8 +480,9 @@ gate, gathered into an array):
     node -e "const fs=require('fs');const t=fs.readFileSync('.conversion/gates.out','utf8');const d=t.split(/^(?=\{$)/m).map(s=>s.replace(/^All \d+ gates passed\s*$/m,'').trim()).filter(Boolean).map(JSON.parse);fs.writeFileSync('.conversion/gates.json',JSON.stringify(d,null,2)+'\n')"
     node $KIT/skills/suggest-improvements/scripts/suggest.mjs --capture capture --baseline baseline --review review --gates .conversion/gates.json --out docs/suggestions.md --json suggestions.json
 
-Then add the "From the review" section by hand, as the `suggest-improvements` skill says. Apply
-nothing.
+Then add the "From the review" section by hand, as the `suggest-improvements` skill says. When
+`docs/performance.md` exists, mark any capture-based findings already resolved by the performance
+pass and add outstanding measured opportunities with their evidence. Apply nothing in phase 11.
 
 **Proof:** `docs/suggestions.md` exists, ends with "From the review", and its Not covered list is
 copied for the PR.

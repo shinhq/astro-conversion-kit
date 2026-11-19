@@ -1,6 +1,7 @@
 # Working in this repository
 
-This is a static Astro rebuild of {{ORIGIN}} ({{SITE_NAME}}), made with astro-conversion-kit.
+This is a static Astro rebuild of {{ORIGIN}} ({{SITE_NAME}}), made with
+[astro-conversion-kit](https://github.com/shinhq/astro-conversion-kit).
 The goal is parity: the same URLs, content, head tags and look as the live site. Not a redesign.
 
 ## Branch
@@ -14,6 +15,8 @@ The goal is parity: the same URLs, content, head tags and look as the live site.
 - Do not fetch the live site again unless a capture step asks for it. It is read-only.
 - If something is missing from `capture/`, re-run the capture into a fresh folder and diff instead of
   guessing; the committed capture stays as it was.
+- The static build hook normalizes same-site body links to locally served destinations. The
+  performance pass uses the kit's checklist and records verified results in `docs/performance.md`.
 
 ## Gates on every commit
 Run before each commit and fix every failure first:

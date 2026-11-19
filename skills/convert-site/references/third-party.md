@@ -35,10 +35,17 @@ Copy each tag from the captured page where it appears, in the same place (`<head
 layout; a tag on some pages only goes on those pages, per its `pages[]`. Consent tools keep their
 order before the tags they gate.
 
+During the [performance pass](performance.md), measure which kept tags block initial rendering.
+Defer only tags whose consent, account IDs, page coverage, queued events, and dependencies can
+be preserved. Retain independent `async` loading so one stalled vendor cannot hold up another.
+Keep the compiled tags recognizable to the scripts gate. Verify consent, script ordering,
+existing attribution passed to forms, and form use with analytics unavailable. Use local browser
+requests stubbed for the vendors and run the scripts gate as before.
+
 ## docs/third-party.md
 
 The human table, generated from `baseline/scripts.json` and never written from memory. Rewrite it
-whenever a `keep` flag changes, one row per vendor:
+whenever a `keep` flag or a vendor's scheduling changes, one row per vendor:
 
 | Service | Kind | Where it loads | ID or URL | Carried over as | Status |
 |---|---|---|---|---|---|

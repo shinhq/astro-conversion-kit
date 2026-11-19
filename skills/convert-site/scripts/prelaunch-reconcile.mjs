@@ -45,6 +45,9 @@ Narrow rules that need no decision:
                                   Sitemap: line on that host in <dist>/robots.txt is one the live
                                   robots.txt (capture/robots.txt) carried verbatim (a sister
                                   site's sitemap the default build keeps, as live had it)
+  output.internal-refs           the same check is replayed on each source file to recover the
+                                  full list, and every reference resolves through the generated
+                                  host rules or a verified media manifest and storage route
   output.og-image                 a row "<image> does not exist in the build" whose path the
                                   baseline media lists, under the media prefix of a media plan in
                                   mode store or live-temporary, with the whole prefix sent to
@@ -71,7 +74,7 @@ crashed one included.
   --capture <dir>    the capture folder: assets/index.json, meta.json, sitemaps/index.json,
                      robots.txt and the 404 page (default: capture)
   --dir <dir>        the site repository, for hygiene.pushed (default: .)
-  --dist <dir>       the build, for predecessor.coverage and output.robots-txt (default: <dir>/dist)
+  --dist <dir>       the build output (default: <dir>/dist)
   --state <file>     the run state with needsYou (default: .conversion/state.json)
   --media-plan <file>  the media plan, for output.og-image (default: <dir>/docs/media-plan.json)
   --json             print { failing, accepted[], blocking[] } instead of lines
@@ -390,7 +393,7 @@ const ROWS = {
 // The media plan's word for an image the build does not hold but the media rewrite serves: the
 // plan keeps media off the repo (store or live-temporary), the path is under its prefix, and a
 // rewrite for the prefix is configured. null otherwise.
-function rewriteServes(env, path) {
+export function rewriteServes(env, path) {
   const plan = env.mediaPlan;
   if (!plan || !['store', 'live-temporary'].includes(plan.mode) || typeof plan.prefix !== 'string') return null;
   const prefix = `/${plan.prefix.replace(/^\/+|\/+$/g, '')}/`;
@@ -538,6 +541,7 @@ function narrow(check, env, base, decisions) {
     });
     return { ok: rows.every((r) => r.ok), rule: 'live-robots', decision: null, rows };
   }
+  if (check.id === 'output.internal-refs') return localReferenceRows(check, env);
   if (check.id === 'predecessor.coverage') {
     const rows = values.map((text) => noSitemapRow(text, base, decisions, env));
     const ids = [...new Set(rows.flatMap((r) => r.decisions ?? []))];
@@ -545,6 +549,19 @@ function narrow(check, env, base, decisions) {
     return { ok: rows.every((r) => r.ok), rule: 'no-sitemap', decision: ids.join(', ') || null, rows };
   }
   return undefined;
+}
+
+// The replay uses both the vendored check and the host resolver. It runs from the full kit,
+// while every other reconciliation and --help still work with this skill copied on its own.
+function localReferenceRows(check, env) {
+  const script = fileURLToPath(new URL('../../../scripts/replay-internal-refs.mjs', import.meta.url));
+  if (!existsSync(script)) {
+    return { ok: false, rows: [{ text: check.detail, ok: false, reason: 'host route proof requires the full conversion kit' }] };
+  }
+  const output = execFileSync(process.execPath, [script], {
+    input: JSON.stringify({ check, env }), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  });
+  return JSON.parse(output);
 }
 
 // The file the build serves for a url path, as pre-launch resolves it (plus a feed's index.xml).
@@ -636,6 +653,7 @@ function lines(result) {
       else if (a.rule === 'form-id') out.push(`accepted  ${a.id}: ${r.text} — form id pending (needs you)`);
       else if (a.rule === 'no-remote') out.push(`accepted  ${a.id}: ${r.text} — no remote yet; the push is on the needs-you list`);
       else if (a.rule === 'live-robots') out.push(`accepted  ${a.id}: ${r.text} — the live robots.txt carried this Sitemap: line`);
+      else if (a.rule === 'host-routes') out.push(`accepted  ${a.id}: ${r.text} — verified by the generated host routes or media manifest`);
       else if (a.rule === 'no-sitemap') out.push(`accepted  ${a.id}: ${r.text} — live publishes no sitemap; every page the crawl found is built${a.decision ? ` or decided (${a.decision})` : ''}`);
       else if (r.note) out.push(`accepted  ${a.id}: ${r.text} — ${r.note} (${r.decision})`);
       else out.push(`accepted  ${a.id}: ${r.paths.join(', ') || r.text} ${r.field} — reproduced from live (${r.decision})`);
@@ -683,6 +701,7 @@ function main() {
     result = reconcile(loadFailing(opts.findings), loadBaseline(opts.baseline, opts.capture ?? 'capture'), loadDecisions(opts.plan), {
       dir,
       dist: opts.dist ?? join(dir, 'dist'),
+      baselineDir: opts.baseline,
       state: opts.state ?? join(dir, '.conversion', 'state.json'),
       mediaPlan,
     });

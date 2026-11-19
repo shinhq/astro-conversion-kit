@@ -14,10 +14,10 @@ runs every other skill in order.
 The skills call each other and share script libraries, so install all eight together. Any one of
 these works:
 
-1. `npx skills add ethanplusai/astro-conversion-kit` installs them into your agent's skills folder.
-2. In Claude Code: `/plugin marketplace add ethanplusai/astro-conversion-kit`, then
+1. `npx skills add shinhq/astro-conversion-kit` installs them into your agent's skills folder.
+2. In Claude Code: `/plugin marketplace add shinhq/astro-conversion-kit`, then
    `/plugin install astro-conversion@astro-conversion-kit`.
-3. From a clone: `git clone https://github.com/ethanplusai/astro-conversion-kit`, `npm install`,
+3. From a clone: `git clone https://github.com/shinhq/astro-conversion-kit`, `npm install`,
    `npx playwright install chromium`, and read each `skills/<name>/SKILL.md` by path.
 
 Then run `node skills/convert-site/scripts/preflight.mjs` and install whatever it reports missing
@@ -55,9 +55,10 @@ sites this kit did not build.
 - **One intake message, then no stops.** Ask everything once, each question with a stated default.
   Anything that later needs an account or token you do not have goes into the runbook's "needs
   you" list, and the run carries on.
-- **The default build equals live.** Content is moved from the captured markup, never retyped or
-  tidied. A deliberate difference is an entry in `exceptions.json` with a reason; an improvement
-  is a proposal in `proposals.json`, shipped only when `PROPOSALS=on` until a person approves it.
+- **Build parity first.** Move content from captured markup and use root-relative links for
+  locally served destinations. After parity, run the default performance pass and retain only
+  measured, verified improvements. Deliberate parity differences use `exceptions.json`. Changes
+  that need approval use `proposals.json` and ship only in a `PROPOSALS=on` build until approved.
 - **Gates are not softened.** No flag turns a failure into a warning. Never edit `baseline/` to
   make a gate pass. If a gate is wrong about a site, say so and fix the gate.
 - **A skip is not a pass, and "Not covered" is never a pass.** Repeat every "Not covered" section

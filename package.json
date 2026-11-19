@@ -18,11 +18,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ethanplusai/astro-conversion-kit.git"
+    "url": "git+https://github.com/shinhq/astro-conversion-kit.git"
   },
-  "homepage": "https://github.com/ethanplusai/astro-conversion-kit#readme",
+  "homepage": "https://github.com/shinhq/astro-conversion-kit#readme",
   "bugs": {
-    "url": "https://github.com/ethanplusai/astro-conversion-kit/issues"
+    "url": "https://github.com/shinhq/astro-conversion-kit/issues"
   },
   "author": "Ethan Rogers",
   "private": true,
