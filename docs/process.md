@@ -111,7 +111,8 @@ commit, so it can be dropped.
 
 Run the [default optimization checklist](../skills/convert-site/references/performance.md) after
 parity. Measure an isolated release build, optimize site-specific bottlenecks, and recheck the
-gates and visual review. Write the results and coverage to `docs/performance.md`. The intake
+gates and visual review. Write the results and coverage to `docs/performance.md` and run
+`npm run verify:performance` before pre-launch or a local handoff. The intake
 option `parity only` skips this phase's measurements and changes.
 
 ## 10. Pre-launch and staging

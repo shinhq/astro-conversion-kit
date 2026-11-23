@@ -54,13 +54,15 @@ npm run verify
 npm run review:serve
 ```
 
-Use `npm run audit:lighthouse` to repeat the performance audit after the default pass installs
-Lighthouse. Run `npm run audit:lighthouse -- --help` for route selection and release verification flags.
+Use `npm run audit:lighthouse` to repeat the performance audit using the scaffold’s pinned Lighthouse version. Run `npm run audit:lighthouse -- --help` for route selection and release verification flags.
 
 ## Default post-conversion optimizations
 
 Once the Astro build passes parity and visual review, the agent audits representative pages on
-mobile and desktop with Lighthouse. It evaluates seven optimizations and keeps changes that
+mobile and desktop with Lighthouse. The agent runs `npm run optimize` to measure the starting
+release, build and verify the changes and measure the result. In this phase each Astro build automatically
+encodes eligible local JPEG and PNG images as WebP, serves the smaller candidates with the
+original fallbacks and writes `docs/image-optimization.json`. It evaluates seven optimizations and keeps changes that
 improve measured results and pass parity and interaction checks.
 
 1. **WebP and local images.** Generate smaller WebP derivatives from suitable captured images and retain the originals at their existing URLs.
@@ -72,7 +74,9 @@ improve measured results and pass parity and interaction checks.
 7. **Analytics and tags.** Defer noncritical tracking while preserving consent, tag IDs, and form attribution. Check that tracking failures leave forms usable.
 
 The converted repo's `docs/performance.md` records before-and-after scores, loading metrics,
-image transfer sizes, shipped changes, and coverage gaps. Changes to the live experience go
+image transfer sizes, shipped changes, and coverage gaps. Before handoff, the agent runs
+`npm run verify:performance` to check that all seven outcomes have
+evidence. This applies to local-only conversions too. Changes to the live experience go
 through the proposal workflow. [Performance playbook](skills/convert-site/references/performance.md)
 
 ## Results

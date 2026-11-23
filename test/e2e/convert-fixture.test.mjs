@@ -2,8 +2,10 @@
 // references/phases.md write it (test/e2e/lib/run.mjs), each phase's proof asserted below.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { chromium } from 'playwright';
+import { checkBuiltImages } from '../../skills/convert-site/scripts/lib/performance-proof.mjs';
 import { startFixture } from '../fixture/serve.mjs';
 import * as R from './lib/run.mjs';
 
@@ -44,7 +46,7 @@ test('1 intake: the answers and the needs-you list are in state', () => {
   const { intake, needsYou } = R.state(SITE);
   assert.equal(intake.hosting, 'vercel');
   assert.equal(intake.platform, 'wordpress');
-  assert.equal(intake.performance, true);
+  assert.equal(intake.performance, false);
   assert.ok(needsYou.length >= 3);
   assert.equal(results.intake.preflight.tools.gh.present, false, 'no CLI is reachable from the run');
 });
@@ -150,15 +152,10 @@ test('9 components: skipped, off by default', () => {
   assert.equal(R.state(SITE).phases.components.result, 'skipped: off by default');
 });
 
-test('9a performance: enabled by default, resumable, and skippable at intake', async () => {
-  assert.equal(results.performance.starting, results.performance.resumed);
-  assert.equal(R.state(SITE).phases.performance.result.status, 'complete');
-  assert.match(readFileSync(file('docs', 'performance.md'), 'utf8'), /## Not covered\n\nLighthouse is unavailable/);
-  const parityOnly = `${SITE}-empty`;
-  await R.S(parityOnly, 'set', 'intake.performance', 'false');
-  await R.performance({ site: parityOnly });
-  assert.deepEqual(R.state(parityOnly).phases.performance.result, { status: 'skipped', reason: 'parity only' });
-  assert.ok(!existsSync(join(parityOnly, 'review')));
+test('9a performance: an explicit parity-only intake skips the pass', () => {
+  assert.match(results.performance.stdout, /skipped at intake/);
+  assert.deepEqual(R.state(SITE).phases.performance.result, { status: 'skipped', reason: 'parity only' });
+  assert.ok(!existsSync(file('review', 'lighthouse')));
 });
 
 // pre-launch with --predecessor-url fails two checks that read the kit's trailing-slash
@@ -212,4 +209,55 @@ test('12 pr: review:check and the gates pass once more, the body is written, ast
   assert.deepEqual(Object.keys(phases), R.PHASES);
   for (const name of R.PHASES) assert.ok(phases[name].finishedAt, `${name} finished`);
   assert.ok(readdirSync(`${SITE}-remote.git`).includes('refs'));
+});
+
+test('ordinary post-parity builds serve a smaller WebP, preserve the fallback and honor responsive widths', async (t) => {
+  const site = mkdtempSync(join(R.TMP, 'auto-images-'));
+  t.after(() => rmSync(site, { recursive: true, force: true }));
+  const run = async (cmd, args, env = {}) => R.expectCode(await R.sh(cmd, args, { cwd: site, env }));
+  const runner = join(R.KIT, 'skills/convert-site/scripts/init-site.mjs');
+  await run(process.execPath, [runner, '--dir', site, '--origin', 'https://example.com', '--name', 'Images',
+    '--host', 'vercel', '--no-install', '--astro-version', R.ASTRO_VERSION]);
+  symlinkSync(file('node_modules'), join(site, 'node_modules'), 'dir');
+  const uploads = join(R.KIT, 'test/fixture/site/wp-content/uploads/2026/01');
+  for (const name of ['hero-300x200.jpg', 'hero-1024x683.jpg']) cpSync(join(uploads, name), join(site, 'public', name));
+  writeFileSync(join(site, 'src/pages/index.astro'), `<html><body>
+    <img id="photo" alt="Roof" src="/hero-1024x683.jpg" sizes="100vw" srcset="/hero-300x200.jpg 300w, /hero-1024x683.jpg 1024w">
+    <img data-src="/hero-300x200.jpg" src="/hero-1024x683.jpg">
+    <picture><source media="(max-width: 400px)" srcset="/hero-300x200.jpg"><img src="/hero-1024x683.jpg"></picture>
+    </body></html>`);
+  await R.S(site, 'phase', 'visual');
+  await run('npm', ['run', 'build']);
+  const pageHtml = () => readFileSync(join(site, 'dist/index.html'), 'utf8');
+  assert.doesNotMatch(pageHtml(), /image\/webp/);
+  await R.S(site, 'phase', 'performance');
+  await run('npm', ['run', 'build'], { CONVERSION_AUDIT_BASELINE: '1' });
+  assert.doesNotMatch(pageHtml(), /image\/webp/);
+  await run('npm', ['run', 'build']);
+  const report = R.readJson(join(site, 'docs/image-optimization.json'));
+  assert.equal(report.rewritten, 1);
+  assert.equal(report.trials.length, 2);
+  const server = await R.serveLikeVercel(site);
+  t.after(() => server.close());
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  for (const width of [280, 900]) {
+    const page = await browser.newPage({ viewport: { width, height: 800 }, deviceScaleFactor: 1 });
+    await page.goto(server.origin);
+    const selected = await page.locator('#photo').evaluate(async (img) => {
+      await img.decode();
+      return new URL(img.currentSrc).pathname;
+    });
+    const trial = report.trials.find((item) => item.url === selected);
+    assert.equal(trial?.width, width === 280 ? 300 : 1024);
+    assert.ok(trial.candidateBytes < trial.originalBytes);
+    assert.equal((await page.request.get(server.origin + selected)).headers()['content-type'], 'image/webp');
+    assert.deepEqual(readFileSync(join(site, 'dist', trial.file)), readFileSync(join(uploads, trial.file)));
+    await page.close();
+  }
+  await run('npm', ['run', 'build']);
+  assert.deepEqual(R.readJson(join(site, 'docs/image-optimization.json')), report);
+  checkBuiltImages(site);
+  writeFileSync(join(site, 'dist/index.html'), pageHtml().replace('type="image/webp"', 'type="image/png"'));
+  assert.throws(() => checkBuiltImages(site), /differs from the built page/);
 });

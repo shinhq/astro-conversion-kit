@@ -16,7 +16,8 @@ The goal is parity: the same URLs, content, head tags and look as the live site.
 - If something is missing from `capture/`, re-run the capture into a fresh folder and diff instead of
   guessing; the committed capture stays as it was.
 - The static build hook normalizes same-site body links to locally served destinations. The
-  performance pass uses the kit's checklist and records verified results in `docs/performance.md`.
+  performance phase runs `npm run optimize`, then records the seven verified outcomes in `docs/performance.md`.
+  Run `npm run verify:performance` before handoff, including local-only runs.
 
 ## Gates on every commit
 Run before each commit and fix every failure first:

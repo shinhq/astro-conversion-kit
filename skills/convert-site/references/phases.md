@@ -378,6 +378,8 @@ Only when the intake said "components" or the person asked: `components-optional
 `false` means the person chose `parity only`. Record `S set phases.performance.result
 '{"status":"skipped","reason":"parity only"}'` and continue to phase 10. With `true` or a
 missing setting on an older run, follow [the performance playbook](performance.md).
+Run `npm run optimize -- -- <phase 7 verification flags>` to measure the starting release, build the optimized site,
+verify parity and measure the resulting release. With no flags, run `npm run optimize`.
 Keep before-and-after audits in separate folders under `review/lighthouse/`. When resuming, use
 the recorded checklist and starting audit. Record progress in `docs/performance.md` as each
 check is evaluated. If a pre-launch fix changes a measured template or shared asset, repeat the
@@ -386,7 +388,9 @@ affected performance checks against the final build and update the report.
 **Proof:** `docs/performance.md` covers all seven checklist items, reports measurements or
 specific **Not covered** reasons, and every kept change passes the phase 7 and 8 checks.
 Set `phases.performance.result` to `{"status":"complete","report":"docs/performance.md"}`
-and carry any below-target scores and coverage gaps into the PR. A parity-only decision is
+only after verification, then run `S check-performance`. The state command checks the seven
+outcomes in the report and the two release audit summaries before allowing prelaunch,
+suggestions or PR. Carry below-target scores and coverage gaps into the PR. A parity-only decision is
 complete when its skip is recorded in state.
 
 ## 10. prelaunch

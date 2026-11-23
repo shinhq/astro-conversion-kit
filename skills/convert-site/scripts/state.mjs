@@ -5,6 +5,7 @@
 import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { performanceProof } from './lib/performance-proof.mjs';
 import { assertNodeVersion } from './lib/node-version.mjs';
 
 const HELP = `Usage: node state.mjs --dir <site> <command>
@@ -14,6 +15,7 @@ Commands:
   set <key> <json>      set a value; <json> is parsed as JSON ('"vercel"', 13, {...})
   phase <name>          start a phase: stamps its startedAt and the previous
                         phase's finishedAt (re-entering the current phase is a no-op)
+  check-performance     verify the default optimization checklist or explicit parity-only skip
   decision '<json>'     append a decision {topic, choice, default, reason,
                         costIfWrong}; id and date are filled in; prints the id
 
@@ -21,12 +23,21 @@ Keys may be dotted paths, e.g. counts.pages or phases.capture.result.
 State lives in <site>/.conversion/state.json and is written atomically.
 Each write command reads, changes and rewrites the file without a lock, so
 run state.mjs calls one after another, never in parallel.
-Exit codes: 0 success, 2 usage error or unreadable or unwritable state file.`;
+Exit codes: 0 success, 1 incomplete performance proof, 2 usage error or unreadable or unwritable state file.`;
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const DECISION_FIELDS = ['topic', 'choice', 'default', 'reason', 'costIfWrong'];
 
 class UsageError extends Error {}
+class IncompletePerformance extends Error {}
+
+function checkPerformance(dir, state) {
+  try {
+    return performanceProof(dir, state);
+  } catch (err) {
+    throw new IncompletePerformance(err.message);
+  }
+}
 
 function freshState(now) {
   return {
@@ -160,7 +171,7 @@ function parseArgs(argv) {
 function run({ dir, command, args }) {
   if (!dir) throw new UsageError('--dir <site> is required');
   const now = new Date().toISOString();
-  const arity = { get: [0, 1], set: [2, 2], phase: [1, 1], decision: [1, 1] }[command];
+  const arity = { get: [0, 1], set: [2, 2], phase: [1, 1], decision: [1, 1], 'check-performance': [0, 0] }[command];
   if (!arity) throw new UsageError(command ? `unknown command: ${command}` : 'a command is required');
   if (args.length < arity[0] || args.length > arity[1]) throw new UsageError(`wrong arguments for ${command}`);
   const state = readState(dir, now);
@@ -170,9 +181,19 @@ function run({ dir, command, args }) {
     console.log(typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : JSON.stringify(value));
     return;
   }
+  if (command === 'check-performance') {
+    console.log(checkPerformance(dir, state));
+    return;
+  }
   if (command === 'set') {
     setPath(state, args[0], parseJson(args[1], 'value'));
+    const result = state.phases?.performance?.result;
+    if (args[0].startsWith('phases.performance.result') && ['complete', 'skipped'].includes(result?.status)) {
+      checkPerformance(dir, state);
+    }
+    if (args[0] === 'phases.pr.result' || args[0] === 'phases.pr.finishedAt') checkPerformance(dir, state);
   } else if (command === 'phase') {
+    if (['prelaunch', 'suggestions', 'pr'].includes(args[0])) checkPerformance(dir, state);
     startPhase(state, args[0], now);
   } else {
     console.log(addDecision(state, parseJson(args[0], 'decision'), now).id);
@@ -193,7 +214,7 @@ function main(argv) {
   } catch (error) {
     if (error instanceof UsageError) console.error(`state: ${error.message}\n\n${HELP}`);
     else console.error(`state: ${error.message}`);
-    return 2;
+    return error instanceof IncompletePerformance ? 1 : 2;
   }
 }
 

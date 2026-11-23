@@ -308,7 +308,7 @@ test('a README-only directory is accepted and missing kit script trees are skipp
   const readme = readFileSync(join(dir, 'README.md'), 'utf8');
   assert.match(readme, /^# Existing repo/);
   assert.match(readme, /astro-conversion-kit/);
-  assert.ok(!existsSync(join(dir, 'scripts')));
+  assert.deepEqual(readdirSync(join(dir, 'scripts')).sort(), ['optimize-images.mjs', 'optimize.mjs']);
 });
 
 test('a folder holding only a capture, run state and .gitignore is scaffolded around them', (t) => {

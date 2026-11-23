@@ -108,9 +108,10 @@ export async function intake({ site, live }) {
   mkdirSync(empty, { recursive: true });
   const preflight = JSON.parse(expectCode(await node(site, kit('convert-site', 'preflight.mjs'), ['--json', '--path-env', empty, '--home', empty])).stdout);
   const fingerprint = expectCode(await node(site, kit('capture-site', 'fingerprint.mjs'), [live]));
-  // The defaults stand (nobody answers the message), plus the two old URLs the person listed.
+  // This launch fixture requests parity only and supplies two old URLs. The performance
+  // integration tests exercise the default pass with a local Lighthouse CLI stand-in.
   await setState(site, 'intake', {
-    siteName: NAME, hosting: 'vercel', components: false, performance: true, oldUrls: OLD_URLS, testAddress: null,
+    siteName: NAME, hosting: 'vercel', components: false, performance: false, oldUrls: OLD_URLS, testAddress: null,
     platform: /platform:\s+(\S+)/.exec(fingerprint.stdout)?.[1] ?? null, experience: preflight.experience,
   });
   await setState(site, 'needsYou', [
@@ -693,22 +694,10 @@ export async function components({ site }) {
   await setState(site, 'phases.components.result', 'skipped: off by default');
 }
 
-// The browser CLI is exercised separately with a local runner fixture. This site uses the
-// playbook's missing-tool path so the conversion test stays independent of Lighthouse installs.
 export async function performance({ site }) {
   await S(site, 'phase', 'performance');
-  if (state(site).intake?.performance === false) {
-    await setState(site, 'phases.performance.result', { status: 'skipped', reason: 'parity only' });
-    return {};
-  }
-  const starting = state(site).phases.performance.startedAt;
-  await S(site, 'phase', 'performance');
-  const resumed = state(site).phases.performance.startedAt;
-  const audit = expectCode(await npm(site, ['run', 'audit:lighthouse', '--', '--out', 'review/lighthouse/before', '--', ...VERIFY_FLAGS]), 2);
-  const summary = readJson(join(site, 'review/lighthouse/before/summary.json'));
-  write(join(site, 'docs', 'performance.md'), `# Performance\n\n## Not covered\n\n${summary.errors.join('\n')}\n`);
-  await setState(site, 'phases.performance.result', { status: 'complete', report: 'docs/performance.md' });
-  return { audit, starting, resumed };
+  await setState(site, 'phases.performance.result', { status: 'skipped', reason: 'parity only' });
+  return S(site, 'check-performance');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -785,6 +774,7 @@ export async function pr({ site, results }) {
   appendFileSync(join(site, 'docs', 'LAUNCH.md'), `\n## Run-specific needs\n\n${needsYou.map((n) => `- [ ] ${n}`).join('\n')}\n`);
   const body = [
     '## What changed', '', `WordPress site at its live origin converted to static Astro on Vercel; media in the repository.`, '',
+    '## Performance', '', results.performance.stdout.trim(), '',
     '## Gate output', '', '```', results.gates.staging.stdout.trim(), '```', '',
     '## Not covered', '', '### pre-launch', '', ...results.prelaunch.gate.checks.filter((c) => c.status === 'skip').map((c) => `- ${c.id}: ${c.detail}`), '',
     '## Waiting on you', '', ...needsYou.map((n) => `- ${n}`), '',

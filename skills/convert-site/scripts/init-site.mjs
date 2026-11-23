@@ -168,7 +168,7 @@ function writePackageJson(dir, kitPkg, astroVersion) {
   const path = join(dir, 'package.json');
   const pkg = JSON.parse(readFileSync(path, 'utf8'));
   const kitDeps = { ...kitPkg.dependencies, ...kitPkg.devDependencies };
-  pkg.devDependencies = { astro: astroVersion };
+  pkg.devDependencies = { ...pkg.devDependencies, astro: astroVersion };
   for (const dep of PINNED_DEPS) {
     if (!kitDeps[dep]) throw new UsageError(`the kit's package.json does not pin ${dep}`);
     pkg.devDependencies[dep] = kitDeps[dep];
@@ -288,7 +288,10 @@ export function initSite(argv) {
 
   const astroVersion = opts['astro-version'] || latestAstro7();
   const host = HOSTS[opts.host];
+  const stateFile = join(dir, '.conversion/state.json');
+  const intake = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')).intake : null;
   const values = {
+    PERFORMANCE: intake?.performance !== false,
     ORIGIN: opts.url.origin,
     HOST: opts.url.hostname,
     SITE_NAME: opts.name,

@@ -1,11 +1,12 @@
 import { execFile } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { PERFORMANCE_CHECKS, performanceProof } from '../../skills/convert-site/scripts/lib/performance-proof.mjs';
 import { auditOptions } from '../../skills/convert-site/scripts/audit-lighthouse.mjs';
 
 const script = fileURLToPath(new URL('../../skills/convert-site/scripts/audit-lighthouse.mjs', import.meta.url));
@@ -131,4 +132,78 @@ test('explicit preview routes and incomplete release audits have distinct outcom
   assert.throws(() => auditOptions(['--routes', '//example.com/']), /expected a local route/);
   assert.throws(() => auditOptions(['--all', '--routes', '/']), /choose --all or --routes/);
   assert.throws(() => auditOptions(['--', '--dist', 'dist']), /verification flags/);
+});
+
+test('default performance closeout uses all seven decisions and comparable release samples', async (t) => {
+  const { site } = fixture(t);
+  const state = { phases: { performance: { result: { status: 'complete', report: 'docs/performance.md' } } } };
+  const first = await run(site, ['--before-optimizations', '--out', 'review/lighthouse/before', '--', '--honeypot', '_gotcha']);
+  const second = await run(site, ['--out', 'review/lighthouse/after', '--', '--honeypot', '_gotcha']);
+  assert.equal(first.code, 1, first.stderr);
+  assert.equal(second.code, 1, second.stderr);
+  // All fixture pages contain only the title. There are no optimization candidates.
+  const report = PERFORMANCE_CHECKS.map((name) => `### ${name}\n\nNot applicable — the fixture serves title-only HTML.\n`).join('\n') + '\n## Not covered\n\nHosted caching and real-user timings.\n';
+  mkdirSync(join(site, 'docs'));
+  writeFileSync(join(site, 'docs/image-optimization.json'), JSON.stringify({ version: 1, scanned: 0, rewritten: 0, pages: {}, trials: [] }));
+  const doc = join(site, 'docs/performance.md');
+  const check = () => performanceProof(site, state);
+  writeFileSync(doc, report);
+  assert.match(check(), /checklist complete/);
+  writeFileSync(doc, report.replace('Not applicable —', 'Blocked —'));
+  assert.throws(check, /unfinished optimization checks: WebP/);
+  writeFileSync(doc, report);
+
+  const after = join(site, 'review/lighthouse/after/summary.json');
+  const summary = readJson(after);
+  for (const [change, message] of [
+    [{ results: summary.results.slice(1) }, /lacks \/ mobile/],
+    [{ threshold: 80 }, /settings differ/],
+    [{ routes: ['/'] }, /omits template representatives/],
+    [{ indexing: 'existing preview' }, /release build/],
+  ]) {
+    writeFileSync(after, JSON.stringify({ ...summary, ...change }));
+    assert.throws(check, message);
+  }
+  const incomplete = await run(site, ['--out', 'review/lighthouse/after', '--', '--honeypot', '_gotcha'], { FIXTURE_FAIL_VERIFY: '1' });
+  assert.equal(incomplete.code, 2, incomplete.stderr);
+  assert.throws(check, /quote the audit errors/);
+  writeFileSync(doc, report + '\n### Release audit\n\n' + readJson(after).errors.join('\n'));
+  assert.match(check(), /Not covered/);
+});
+
+test('npm run optimize measures before and after, rebuilds normally and reuses the starting measurement', async (t) => {
+  const { site } = fixture(t);
+  const scripts = join(site, 'scripts');
+  mkdirSync(scripts);
+  copyFileSync(new URL('../../skills/convert-site/templates/site/scripts/optimize.mjs', import.meta.url), join(scripts, 'optimize.mjs'));
+  symlinkSync(script, join(scripts, 'audit-lighthouse.mjs'));
+  symlinkSync(join(dirname(script), 'state.mjs'), join(scripts, 'state.mjs'));
+  const pkg = readJson(join(site, 'package.json'));
+  pkg.scripts.optimize = 'node scripts/optimize.mjs';
+  pkg.scripts.verify = 'node --version';
+  pkg.scripts['review:check'] = 'node --version';
+  writeFileSync(join(site, 'package.json'), JSON.stringify(pkg));
+  const build = join(site, 'build.mjs');
+  writeFileSync(build, `import { appendFileSync } from 'node:fs';
+    appendFileSync('builds.txt', process.env.CONVERSION_AUDIT_BASELINE === '1' ? 'before\\n' : process.argv[2] ? 'after\\n' : 'normal\\n');
+    if (!process.argv[2]) process.exit(0);
+    ${readFileSync(build, 'utf8')}`);
+  // This fixture has no form. Its release gate still checks the isolated release flags.
+  writeFileSync(join(site, 'verify.mjs'), readFileSync(join(site, 'verify.mjs'), 'utf8').replace("['--honeypot', '_gotcha']", '[]'));
+  function optimize() {
+    return new Promise((done) => {
+      execFile('npm', ['run', 'optimize'], { cwd: site, env: { ...process.env,
+        PATH: `${dirname(process.execPath)}:${process.env.PATH}`, CHROME_PATH: '/fixture/chrome' } },
+      (err, stdout, stderr) => done({ code: err?.code ?? 0, stdout, stderr }));
+    });
+  }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = await optimize();
+    assert.equal(result.code, 1, result.stderr + result.stdout);
+    assert.match(result.stdout, /Lighthouse below target/);
+  }
+  assert.equal(readJson(join(site, '.conversion/state.json')).phase, 'performance');
+  assert.equal(readFileSync(join(site, 'builds.txt'), 'utf8'), 'before\nnormal\nafter\nnormal\nafter\n');
+  assert.equal(readJson(join(site, 'review/lighthouse/before/summary.json')).beforeOptimizations, true);
+  assert.equal(readJson(join(site, 'review/lighthouse/after/summary.json')).beforeOptimizations, false);
 });

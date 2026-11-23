@@ -56,8 +56,9 @@ sites this kit did not build.
   Anything that later needs an account or token you do not have goes into the runbook's "needs
   you" list, and the run carries on.
 - **Build parity first.** Move content from captured markup and use root-relative links for
-  locally served destinations. After parity, run the default performance pass and retain only
-  measured, verified improvements. Deliberate parity differences use `exceptions.json`. Changes
+  locally served destinations. After parity, run `npm run optimize` in the converted site and retain only
+  measured, verified improvements. Check all seven outcomes with `state.mjs --dir <site>
+  check-performance` before handoff, including local-only runs. Deliberate parity differences use `exceptions.json`. Changes
   that need approval use `proposals.json` and ship only in a `PROPOSALS=on` build until approved.
 - **Gates are not softened.** No flag turns a failure into a warning. Never edit `baseline/` to
   make a gate pass. If a gate is wrong about a site, say so and fix the gate.

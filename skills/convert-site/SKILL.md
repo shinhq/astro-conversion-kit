@@ -1,12 +1,11 @@
 ---
 name: convert-site
-description: Convert a live website (WordPress first; Drupal, Webflow, Squarespace, Wix and static sites too) into a static Astro site with the same URLs, content, head tags, media, redirects and look, proven by parity gates and a pixel-level visual review, ending in one pull request, a noindexed staging deploy and a launch runbook. Use when asked to convert, rebuild, migrate or clone a site to Astro, when handed a site URL with this kit's link, to resume a conversion from .conversion/state.json, or with --apply <id> to apply one suggestion as a proposal.
+description: Convert a live website (WordPress first; Drupal, Webflow, Squarespace, Wix and static sites too) into a static Astro site with the same URLs, content, head tags, media, redirects and look, proven by parity gates and a pixel-level visual review, ending in one pull request, a noindexed staging deploy and a launch runbook after a measured seven-part optimization pass by default. Use when asked to convert, rebuild, migrate or clone a site to Astro, when handed a site URL with this kit's link, to resume a conversion from .conversion/state.json, or with --apply <id> to apply one suggestion as a proposal.
 ---
 
 # convert-site
 
-The orchestrator. It asks one message of questions, then runs every other skill in order without
-stopping again, and ends with a pull request the person merges and a runbook they launch from.
+Ask once at intake, then run each phase through the pull request and launch runbook.
 
 ## The golden rules
 
@@ -86,7 +85,7 @@ chained with `&&`: each rewrites `state.json`, and a chain failing partway leave
 | 7 | `gates` | The full gates | `npm run verify` exits 0 |
 | 8 | `visual` | Every template at 390, 768, 1440; every page at 390 and 1440 | Every pair passes |
 | 9 | `components` | Optional, off by default (`references/components-optional.md`) | Gates and diffs still pass, one separate commit |
-| 9a | `performance` | Default optimization checklist and before/after release Lighthouse (`references/performance.md`) | Results recorded and kept changes pass gates and visual review, or intake says `parity only` |
+| 9a | `performance` | `npm run optimize`, then finish the measured checklist (`references/performance.md`) | Results recorded and kept changes pass gates and visual review, or intake says `parity only` |
 | 10 | `prelaunch` | `pre-launch`, staging deploy, `verify-live`, `launch-audit`, one test submission | `prelaunch-reconcile.mjs` exits 0 (`references/phases.md` §10); audit blockers fixed or listed |
 | 11 | `suggestions` | `suggest-improvements` with `gates.json` and `review/` | `docs/suggestions.md` with its "From the review" section |
 | 12 | `pr` | Runbook, push, PR, final report | The PR quotes gate output and every "Not covered" section |
@@ -173,17 +172,18 @@ the PR" goes on the needs-you list. The body, in this order:
 
 ## The final report (to the person)
 
-Lead with the PR link and draft blocker if present. Include counts, gate, visual and performance
-results, and the staging URL. Quote all "Not covered" sections verbatim. Under **Waiting on you**,
-read `state.mjs --dir $SITE get needsYou` and give the exact commands or clicks in runbook order.
-Say "PR open, waiting on your merge". Stop any review server you started (`npm run review:serve -- --stop`, and `npx astro preview stop` if you used the preview).
+Run `node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE check-performance` before every handoff, including local-only runs.
+Finish outstanding local work. If blocked, report the conversion as incomplete and name the checks to resume.
+Give the PR link and draft blocker if present, counts, gates, visual results, staging URL and performance results,
+including which images are served and the byte change. Quote all "Not covered" sections verbatim.
+Under **Waiting on you**, read `state.mjs --dir $SITE get needsYou` and give the commands or clicks in runbook order.
+Once open, say "PR open, waiting on your merge". Stop any review server you started (`npm run review:serve -- --stop`, and `npx astro preview stop` if you used the preview).
 
 ## Resuming
 
-In a new session, read `node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE get` and
-continue from `phase`: rerun that phase's proof first; if it holds, start the next phase. The
-capture resumes with `--resume`. Never repeat the intake. Applying a suggestion later is
-`convert-site --apply <id>` (`references/apply-suggestion.md`), never part of the run itself.
+Read `node $KIT/skills/convert-site/scripts/state.mjs --dir $SITE get` and rerun the recorded phase's proof.
+From prelaunch onward, run the current kit's `check-performance` and complete missing checks before proceeding.
+Resume capture with `--resume`. Never repeat the intake. Apply a later suggestion with `convert-site --apply <id>` (`references/apply-suggestion.md`).
 
 ## References
 

@@ -11,12 +11,14 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "optimize": "node scripts/optimize.mjs",
     "audit:lighthouse": "node scripts/audit-lighthouse.mjs",
     "test": "node --test \"test/**/*.test.mjs\"",
     "baseline": "node scripts/build-baseline.mjs --capture capture --out baseline",
     "assets:copy": "node scripts/copy-assets.mjs --capture capture --site .",
     "links:exceptions": "node scripts/link-exceptions.mjs --baseline baseline --capture capture --out exceptions.json",
     "verify": "node scripts/verify/run-all.mjs",
+    "verify:performance": "node scripts/state.mjs --dir . check-performance",
     "verify:proposals": "PROPOSALS=on node scripts/verify/run-all.mjs",
     "verify:release": "PUBLIC_INDEXABLE=true node scripts/verify/run-all.mjs",
     "redirects:build": "node scripts/build-redirects.mjs --csv redirects.csv --host {{HOSTING}} --out {{REDIRECTS_OUT}} --trailing-slash {{TRAILING}} --routes baseline/routes.json",
@@ -28,5 +30,8 @@
     "review:check": "node scripts/review/check.mjs --review review",
     "review:serve": "node scripts/review-serve.mjs"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "sharp": "0.35.5",
+    "lighthouse": "13.6.0"
+  }
 }

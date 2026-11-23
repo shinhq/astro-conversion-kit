@@ -24,6 +24,7 @@ Chrome is not detected. Any flags after -- go to npm run verify:release.
   --runs <count>          repetitions per page and device (default: 1)
   --threshold <score>     minimum in each of the four categories, 0–100 (default: 90)
   --out <dir>             JSON, HTML and summary (default: review/lighthouse)
+  --before-optimizations  build the parity version for the starting release measurement
   --preview               audit existing dist with its current indexing directives
   --block-hosts <hosts>   comma-separated extra hosts to block alongside analytics and live hosts
   --help                  show this help
@@ -55,11 +56,13 @@ export function auditOptions(argv) {
       threshold: { type: 'string', default: '90' },
       out: { type: 'string', default: 'review/lighthouse' },
       preview: { type: 'boolean' },
+      'before-optimizations': { type: 'boolean' },
       'block-hosts': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
   if (values.help) return values;
+  if (values.preview && values['before-optimizations']) throw new Error('baseline measurement requires a release build');
   if (values.all && values.routes !== undefined) throw new Error('choose --all or --routes');
   if (!['mobile', 'desktop', 'both'].includes(values.device)) throw new Error('--device must be mobile, desktop or both');
   const runs = Number(values.runs);
@@ -181,7 +184,10 @@ async function auditPage({ url, dir, route, device, run, cli, child, patterns, t
   // A page redirecting to a login page or to another origin did not get audited.
   const final = new URL(report.finalDisplayedUrl ?? report.finalUrl);
   if (final.origin !== expected.origin || final.pathname !== expected.pathname) throw new Error(`Lighthouse redirected to ${final.href}`);
-  return { route, device, run, json, html, version: report.lighthouseVersion, warnings: report.runWarnings ?? [], ...measurement };
+  const imageRequests = (report.audits?.['network-requests']?.details?.items ?? [])
+    .filter(({ url }) => typeof url === 'string' && url.startsWith(expected.origin + '/_astro/converted-images/'))
+    .map(({ url, transferSize }) => ({ path: new URL(url).pathname, transferBytes: transferSize }));
+  return { route, device, run, json, html, imageRequests, version: report.lighthouseVersion, warnings: report.runWarnings ?? [], ...measurement };
 }
 
 function lighthouseCli(site) {
@@ -197,6 +203,7 @@ export async function runAudit(options, { site = process.cwd(), signal } = {}) {
   const out = resolve(site, options.out);
   mkdirSync(out, { recursive: true });
   const summary = {
+    beforeOptimizations: Boolean(options['before-optimizations']),
     status: 'running', indexing: options.preview ? 'existing preview' : 'isolated release', threshold: options.threshold,
     devices: options.devices, runs: options.runs, routes: [], results: [], errors: [], notCovered: [],
   };
@@ -222,7 +229,7 @@ export async function runAudit(options, { site = process.cwd(), signal } = {}) {
     if (!options.preview) {
       root = mkdtempSync(join(tmpdir(), 'astro-lighthouse-'));
       dist = join(root, 'dist');
-      const release = { cwd: site, env: { ...env, PUBLIC_INDEXABLE: 'true', PROPOSALS: '' }, signal, timeout: 300_000 };
+      const release = { cwd: site, env: { ...env, PUBLIC_INDEXABLE: 'true', PROPOSALS: '', CONVERSION_AUDIT_BASELINE: options['before-optimizations'] ? '1' : '' }, signal, timeout: 300_000 };
       await runChild(npm, [...npmArgs, 'run', 'build', '--', '--outDir', dist], release)
         .catch((error) => { throw new Error(`release build failed\n${error.message}`); });
       await runChild(npm, [...npmArgs, 'run', 'verify:release', '--', '--dist', dist, ...options.verify], release)

@@ -16,6 +16,8 @@ Requires Node 22.23.4 or newer (`nvm use`), then `npm install`.
 | `npm run links:exceptions` | Add the WordPress API and broken-on-live link exceptions to `exceptions.json` |
 | `npm run assets:copy` | Copy captured scripts, fonts, icons and media outside the media prefix to `public/` |
 | `npm run verify` | Run every parity gate against `dist/` |
+| `npm run optimize` | Measure the starting release, build and verify optimized images, and measure the resulting release |
+| `npm run verify:performance` | Check all seven optimization outcomes and release audit coverage, or the explicit parity-only skip |
 | `npm run verify:proposals` | Gates with approved-pending proposals switched on |
 | `npm run verify:release` | Gates for the indexable launch build |
 | `npm run audit:lighthouse` | Local Lighthouse on an isolated release build when Lighthouse is installed. Pass verification flags after the runner's `--` separator. |

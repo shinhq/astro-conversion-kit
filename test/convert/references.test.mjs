@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PERFORMANCE_CHECKS } from '../../skills/convert-site/scripts/lib/performance-proof.mjs';
 
 const SKILL = join(import.meta.dirname, '..', '..', 'skills', 'convert-site');
 const read = (path) => readFileSync(join(SKILL, path), 'utf8');
@@ -225,10 +226,7 @@ test('performance defaults on after parity and documents all seven optimization 
   assert.match(flat(phases), /With `true` or a missing setting on an older run, follow/);
   assert.match(read('references/intake.md'), /"components":false,"performance":true/);
   const checklist = read('references/performance.md').split('## Default optimization checklist')[1].split('## Accept')[0];
-  assert.deepEqual([...checklist.matchAll(/^\d\. \*\*(.+?)\.\*\*/gm)].map((match) => match[1]), [
-    'WebP encoding and image localization', 'Responsive image delivery', 'Hero and below-fold loading',
-    'CSS and fonts', 'Initial layout and widgets', 'First-party JavaScript', 'Analytics and tags',
-  ]);
+  assert.deepEqual([...checklist.matchAll(/^\d\. \*\*(.+?)\.\*\*/gm)].map((match) => match[1]), PERFORMANCE_CHECKS);
 });
 
 test('no live sitemap: build-rules and phases ship sitemap-index.xml as a decision row, and the routes gate allows it', () => {

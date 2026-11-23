@@ -151,3 +151,26 @@ test('an unwritable state directory exits 2 with a message, not a stack trace', 
   assert.match(result.stderr, /^state: .*EACCES/);
   assert.doesNotMatch(result.stderr, /\n\s+at /);
 });
+
+test('a CSS-only report cannot complete performance or advance a default or legacy conversion', (t) => {
+  const dir = site(t);
+  mkdirSync(join(dir, 'docs'));
+  writeFileSync(join(dir, 'docs/performance.md'), '# Performance\n\n### CSS and fonts\n\nApplied — home.css fell from 440 KB to 104 KB.\n');
+  ok(dir, 'phase', 'performance');
+  const prior = file(dir);
+  for (const args of [
+    ['set', 'phases.performance.result', '{"status":"complete","report":"docs/performance.md"}'],
+    ['set', 'phases.performance.result', '{"status":"skipped","reason":"parity only"}'],
+    ['check-performance'], ['phase', 'prelaunch'], ['phase', 'suggestions'], ['phase', 'pr'],
+    ['set', 'phases.pr.result', '{"draft":true}'],
+  ]) {
+    const result = state(dir, ...args);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /WebP encoding and image localization, Responsive image delivery/);
+    assert.deepEqual(file(dir), prior);
+  }
+  ok(dir, 'set', 'intake.performance', 'true');
+  ok(dir, 'phase', 'performance');
+  assert.equal(file(dir).phases.performance.startedAt, prior.phases.performance.startedAt);
+  assert.equal(state(dir, 'phase', 'prelaunch').status, 1);
+});
